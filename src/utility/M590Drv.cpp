@@ -7,7 +7,7 @@ Written by Brian Ejike*/
 #include "utility/M590Drv.h"
 #include "utility/debug.h"
 
-#define NUM_TAGS    7
+#define NUM_TAGS    8
 
 #if defined(__SAM3X8E__)
 #define vsnprintf_P  vsnprintf
@@ -23,6 +23,7 @@ const char * MODEM_TAGS[] = {
     "\r\nERROR\n",
     " 0,1",
     " 0,3",
+    " 0,5",
     ",CON",
     ",DIS"
 };
@@ -33,6 +34,7 @@ typedef enum {
     TAG_ERROR,
     TAG_REG_SUCCESS,
     TAG_REG_ERROR,
+    TAG_REG_ROAMING,
     TAG_LINK_CONNECTED,
     TAG_LINK_DISCONNECTED
 } ModemTags;
@@ -79,6 +81,10 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state){
     for (retry = 0; retry < 20; retry++){
         if (send_cmd_find(F("AT+CREG?"), MODEM_TAGS[TAG_REG_SUCCESS])){
             LOGINFO(F("SIM registered"));
+            break;
+        }
+        if (send_cmd_find(F("AT+CREG?"), MODEM_TAGS[TAG_REG_ROAMING])){
+            LOGINFO(F("SIM registered, roaming"));
             break;
         }
         delay(1000);
