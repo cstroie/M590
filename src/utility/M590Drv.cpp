@@ -112,11 +112,32 @@ int16_t M590Drv::get_rssi(){
     return rssi;
 }
 
+void M590Drv::get_gmr(char * str, int len){
+    if (!check_serial())
+        return;
+    
+	send_cmd_get(F("AT+GMR"), F("\r\n"), F("\r\n\r\n"), str, len);
+}
+
 void M590Drv::get_imei(char * str, int len){
     if (!check_serial())
         return;
     
 	send_cmd_get(F("AT+CGSN"), F("\r\n"), F("\r\n\r\n"), str, len);
+}
+
+void M590Drv::get_cclk(char * str, int len){
+    if (!check_serial())
+        return;
+    
+	send_cmd_get(F("AT+CCLK?"), F("CCLK: \""), F("\""), str, len);
+}
+
+void M590Drv::get_cops(char * str, int len){
+    if (!check_serial())
+        return;
+    
+	send_cmd_get(F("AT+COPS?"), F("COPS:"), F("\r\n"), str, len);
 }
 
 uint8_t M590Drv::check_serial(){

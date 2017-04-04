@@ -35,7 +35,10 @@ class M590Drv {
 	public:
         M590Drv();
 		uint8_t begin(Stream * ss, char sim_state);
+		void get_gmr(char * str, int len);
 		void get_imei(char * str, int len);
+		void get_cclk(char * str, int len);
+		void get_cops(char * str, int len);
         int get_rssi();
 		uint8_t ppp_connect(const char * apn, const char * uname=NULL, const char * pwd=NULL);
 		uint8_t get_ip(IPAddress& ip);

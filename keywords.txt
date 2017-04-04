@@ -17,6 +17,9 @@ get_ip 	KEYWORD2
 
 
 get_imei	KEYWORD2
+get_gmr	KEYWORD2
+get_cclk	KEYWORD2
+get_cops	KEYWORD2
 
 
 connect2website KEYWORD2
