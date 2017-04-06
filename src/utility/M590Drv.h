@@ -8,8 +8,8 @@ Written by Brian Ejike*/
 #include "IPAddress.h"
 #include "Ring_Buffer.h"
 
-#define SIM_PRESENT	1
-#define SIM_ABSENT	0
+#define SIM_PRESENT 1
+#define SIM_ABSENT  0
 
 // Default state value for links
 #define NA_STATE -1
@@ -27,51 +27,55 @@ Written by Brian Ejike*/
 #define CMD_BUFFER_SIZE 200
 
 enum tcp_state {
-	CLOSED      = 0,
-	ESTABLISHED = 1,
+  CLOSED      = 0,
+  ESTABLISHED = 1,
 };
 
 class M590Drv {
-	public:
-        M590Drv();
-		uint8_t begin(Stream * ss, char sim_state);
-		void get_gmr(char * str, int len);
-		void get_imei(char * str, int len);
-		void get_cclk(char * str, int len);
-		void get_cops(char * str, int len);
-        int get_rssi();
-		uint8_t ppp_connect(const char * apn, const char * uname=NULL, const char * pwd=NULL);
-		uint8_t get_ip(IPAddress& ip);
-		uint8_t resolve_url(const char * url, IPAddress& ip);
-        bool check_link_status(uint8_t link=0);
-		uint8_t tcp_connect(IPAddress& ip, uint16_t port, uint8_t link=0);
-		uint8_t tcp_write(const uint8_t * data, uint16_t len, uint8_t link=0);
-        bool tcp_write(const __FlashStringHelper *data, uint16_t len, uint8_t link, bool appendCrLf);
-        uint16_t avail_data(uint8_t link=0);
-        bool read_data(uint8_t *data, bool peek=false, uint8_t link=0, bool* conn_close=NULL);
-        int16_t read_data_buf(uint8_t *buf, uint16_t buf_size, uint8_t link=0);
-		uint8_t tcp_close(uint8_t link=0);
-		uint8_t power_down();
-		void interact();
-	private:
-        uint8_t check_serial();
-        int send_cmd(const __FlashStringHelper* cmd, int timeout=1000, ...);
-        bool send_cmd_find(const __FlashStringHelper* cmd, const char * tag=NULL, int timeout=1000, ...);
-        bool send_cmd_get(const __FlashStringHelper* cmd, const __FlashStringHelper* startTag, const __FlashStringHelper* endTag, char* outStr, int outStrLen, int init_timeout=1000, ...);
-        int read_until(int timeout, const char* tag=NULL, bool findTags=true, bool emptySerBuf=false);
-        bool locate_tag(const char* startTag, const char* endTag, char* outStr, int outStrLen, int init_timeout=1000, int final_timeout=1000);
-        void empty_buf(bool warn=true);
-        int timed_read();
-        
-		uint8_t SIM_PRESENCE;
-        Stream * gsm;
-        Ring_Buffer ringBuf;
-        int _buf_pos;
-        uint8_t _curr_link;
-        IPAddress _ip_addr;
-        bool _ppp_link;
-        
-        //friend class M590Client;
+  public:
+    M590Drv();
+    uint8_t begin(Stream * ss, char sim_state);
+    void getGMR(char *str, int len);
+    void getIMEI(char *str, int len);
+    void getCCLK(char *str, int len);
+    void getCOPS(char *str, int len);
+    int getRSSI();
+    void setFUN(int fun, int rst);
+    void funSleep();
+    void funWork();
+    void restart();
+    uint8_t pppConnect(const char * apn, const char * uname=NULL, const char * pwd=NULL);
+    uint8_t getIP(IPAddress& ip);
+    uint8_t resolve_url(const char * url, IPAddress& ip);
+    bool check_link_status(uint8_t link=0);
+    uint8_t tcp_connect(IPAddress& ip, uint16_t port, uint8_t link=0);
+    uint8_t tcp_write(const uint8_t * data, uint16_t len, uint8_t link=0);
+    bool tcp_write(const __FlashStringHelper *data, uint16_t len, uint8_t link, bool appendCrLf);
+    uint16_t avail_data(uint8_t link=0);
+    bool read_data(uint8_t *data, bool peek=false, uint8_t link=0, bool* conn_close=NULL);
+    int16_t read_data_buf(uint8_t *buf, uint16_t buf_size, uint8_t link=0);
+    uint8_t tcp_close(uint8_t link=0);
+    uint8_t power_down();
+    void interact();
+  private:
+    uint8_t checkSerial();
+    uint8_t checkGPRS();
+    int send_cmd(const __FlashStringHelper* cmd, int timeout=1000, ...);
+    bool send_cmd_find(const __FlashStringHelper* cmd, const char * tag=NULL, int timeout=1000, ...);
+    bool send_cmd_get(const __FlashStringHelper* cmd, const __FlashStringHelper* startTag, const __FlashStringHelper* endTag, char* outStr, int outStrLen, int init_timeout=1000, ...);
+    int read_until(int timeout, const char* tag=NULL, bool findTags=true, bool emptySerBuf=false);
+    bool locate_tag(const char* startTag, const char* endTag, char* outStr, int outStrLen, int init_timeout=1000, int final_timeout=1000);
+    void empty_buf(bool warn=true);
+    int timed_read();
+    uint8_t SIM_PRESENCE;
+    Stream * gsm;
+    Ring_Buffer ringBuf;
+    int _buf_pos;
+    uint8_t _curr_link;
+    IPAddress _ip_addr;
+    bool _ppp_link;
 };
 
 #endif
+
+/* vim: set ft=cpp ai ts=2 sts=2 et sw=2 sta nowrap nu : */

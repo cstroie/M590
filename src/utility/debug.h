@@ -31,17 +31,20 @@ along with The Arduino M590 library.  If not, see
 #define _MODEMLOGLEVEL_ 3
 
 
-#define LOGERROR(x)    if(_MODEMLOGLEVEL_>0) { Serial.print("[M590] "); Serial.println(x); }
-#define LOGERROR1(x,y) if(_MODEMLOGLEVEL_>2) { Serial.print("[M590] "); Serial.print(x); Serial.print(" "); Serial.println(y); }
-#define LOGWARN(x)     if(_MODEMLOGLEVEL_>1) { Serial.print("[M590] "); Serial.println(x); }
-#define LOGWARN1(x,y)  if(_MODEMLOGLEVEL_>2) { Serial.print("[M590] "); Serial.print(x); Serial.print(" "); Serial.println(y); }
-#define LOGINFO(x)     if(_MODEMLOGLEVEL_>2) { Serial.print("[M590] "); Serial.println(x); }
-#define LOGINFO1(x,y)  if(_MODEMLOGLEVEL_>2) { Serial.print("[M590] "); Serial.print(x); Serial.print(" "); Serial.println(y); }
+#define LOGERROR(x)      if(_MODEMLOGLEVEL_>0) { Serial.print(F("[M590] ")); Serial.println(x); }
+#define LOGERROR1(x,y)   if(_MODEMLOGLEVEL_>2) { Serial.print(F("[M590] ")); Serial.print(x); Serial.print(F(" ")); Serial.println(y); }
+#define LOGWARN(x)       if(_MODEMLOGLEVEL_>1) { Serial.print(F("[M590] ")); Serial.println(x); }
+#define LOGWARN1(x,y)    if(_MODEMLOGLEVEL_>2) { Serial.print(F("[M590] ")); Serial.print(x); Serial.print(F(" ")); Serial.println(y); }
+#define LOGINFO(x)       if(_MODEMLOGLEVEL_>2) { Serial.print(F("[M590] ")); Serial.println(x); }
+#define LOGINFO1(x,y)    if(_MODEMLOGLEVEL_>2) { Serial.print(F("[M590] ")); Serial.print(x); Serial.print(F(" ")); Serial.println(y); }
+#define LOGINFO2(x,y,z)  if(_MODEMLOGLEVEL_>2) { Serial.print(F("[M590] ")); Serial.print(x); Serial.print(F(" ")); Serial.print(y); Serial.print(F(" ")); Serial.println(z);}
 
 #define LOGDEBUG(x)      if(_MODEMLOGLEVEL_>3) { Serial.println(x); }
 #define LOGDEBUG0(x)     if(_MODEMLOGLEVEL_>3) { Serial.print(x); }
-#define LOGDEBUG1(x,y)   if(_MODEMLOGLEVEL_>3) { Serial.print(x); Serial.print(" "); Serial.println(y); }
-#define LOGDEBUG2(x,y,z) if(_MODEMLOGLEVEL_>3) { Serial.print(x); Serial.print(" "); Serial.print(y); Serial.print(" "); Serial.println(z); }
+#define LOGDEBUG1(x,y)   if(_MODEMLOGLEVEL_>3) { Serial.print(x); Serial.print(F(" ")); Serial.println(y); }
+#define LOGDEBUG2(x,y,z) if(_MODEMLOGLEVEL_>3) { Serial.print(x); Serial.print(F(" ")); Serial.print(y); Serial.print(F(" ")); Serial.println(z); }
 
 
 #endif
+
+/* vim: set ft=cpp ai ts=2 sts=2 et sw=2 sta nowrap nu : */

@@ -3,24 +3,25 @@ M590Client	KEYWORD1
 
 begin	KEYWORD2
 
-ppp_connect	KEYWORD2
+pppConnect	KEYWORD2
 readAllSMS	KEYWORD2
 readUnreadSMS 	KEYWORD2
-get_rssi	KEYWORD2
+getRSSI	KEYWORD2
+getGMR	KEYWORD2
+getIMEI	KEYWORD2
+getCCLK	KEYWORD2
+getCOPS	KEYWORD2
+setFUN	KEYWORD2
+funSleep	KEYWORD2
+funWork	KEYWORD2
+restart	KEYWORD2
 
 sendSMS 	KEYWORD2
 sendUSSD	KEYWORD2
 tcp_connect 	KEYWORD2
 
 
-get_ip 	KEYWORD2
-
-
-get_imei	KEYWORD2
-get_gmr	KEYWORD2
-get_cclk	KEYWORD2
-get_cops	KEYWORD2
-
+getIP 	KEYWORD2
 
 connect2website KEYWORD2
 

@@ -103,3 +103,5 @@ void Ring_Buffer::getStrN(char * destination, unsigned int skipChars, unsigned i
 	// terminate output string
 	destination[len]=0;
 }
+
+/* vim: set ft=cpp ai ts=2 sts=2 et sw=2 sta nowrap nu : */
