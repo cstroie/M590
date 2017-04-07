@@ -124,3 +124,5 @@ private:
 
 
 #endif
+
+/* vim: set ft=cpp ai ts=2 sts=2 et sw=2 sta nowrap nu : */

@@ -7,7 +7,7 @@ Written by Brian Ejike*/
 #include "utility/M590Drv.h"
 #include "utility/debug.h"
 
-#define NUM_TAGS    12
+#define NUM_TAGS    14
 
 #if defined(__SAM3X8E__)
 #define vsnprintf_P  vsnprintf
@@ -29,6 +29,8 @@ const char * MODEM_TAGS[] = {
   "CREG: 0,5",
   ",CON",
   ",DIS",
+  "+CFUN: 0",
+  "+CFUN: 1",
   "+CGATT: 1"
 };
 
@@ -44,7 +46,9 @@ typedef enum {
   TAG_REG_ROAMING,
   TAG_LINK_CONNECTED,
   TAG_LINK_DISCONNECTED,
-  TAG_GPRS_ATTACHED
+  TAG_FUN_SLEEP,
+  TAG_FUN_WORK,
+  TAG_GPRS_OK
 } ModemTags;
 
 M590Drv::M590Drv() {
@@ -160,29 +164,59 @@ void M590Drv::getCCLK(char *str, int len) {
   send_cmd_get(F("AT+CCLK?"), F("CCLK: \""), F("\""), str, len);
 }
 
+void M590Drv::setCCLK(const char *str) {
+  if (!checkSerial()) return;
+  if (send_cmd(F("AT+CCLK=\"%s\""), 500, str) != TAG_OK) {
+    LOGDEBUG(F("Could not set RTC"));
+    return false;
+  }
+}
+
 // network operator
 void M590Drv::getCOPS(char *str, int len) {
   if (!checkSerial()) return;
   send_cmd_get(F("AT+COPS?"), F("COPS: 0,0,\""), F("\""), str, len);
 }
 
+// function: sleep/work
 void M590Drv::setFUN(int fun, int rst) {
-  if (!checkSerial()) return;
-  if (send_cmd(F("AT+CFUN=1,\"%s\",\"%s\""), 2000, fun, rst) != TAG_OK) {
+  if (send_cmd(F("AT+CFUN=%d,%d"), 2000, fun, rst) != TAG_OK) {
     LOGDEBUG(F("Could not set modem function/reset"));
   }
 }
 
 void M590Drv::funSleep() {
-  setFUN(0, 0);
+  if (send_cmd(F("AT+CFUN=0")) != TAG_OK) {
+    LOGDEBUG(F("Could not send the modem to sleep"));
+  }
 }
 
 void M590Drv::funWork() {
-  setFUN(1, 0);
+  if (send_cmd(F("AT+CFUN=1")) != TAG_OK) {
+    LOGDEBUG(F("Could not wake up the modem"));
+  }
 }
 
 void M590Drv::restart() {
-  setFUN(1, 1);
+  if (send_cmd(F("AT+CFUN=1,1")) != TAG_OK) {
+    LOGDEBUG(F("Could not restart the modem"));
+  }
+}
+
+int M590Drv::getFUN() {
+  if (!checkSerial()) return false;
+  int funStatus = send_cmd(F("AT+CFUN?"));
+  if      (funStatus == TAG_FUN_SLEEP) {
+    LOGINFO(F("Mode: sleeping"));
+    return 0;
+  }
+  else if (funStatus == TAG_FUN_WORK) {
+    LOGINFO(F("Mode: working"));
+    return 1;
+  }
+  else {
+    return -1;
+  }
 }
 
 uint8_t M590Drv::checkSerial() {
@@ -192,7 +226,7 @@ uint8_t M590Drv::checkSerial() {
 }
 
 uint8_t M590Drv::checkGPRS() {
-  if (send_cmd(F("AT+CGATT?")) == TAG_GPRS_ATTACHED) return true;
+  if (send_cmd(F("AT+CGATT?")) == TAG_GPRS_OK) return true;
   LOGDEBUG(F("GPRS not attached"));
   return false;
 }
@@ -226,7 +260,7 @@ uint8_t M590Drv::pppConnect(const char *apn, const char *uname, const char *pwd)
   }
 }
 
-uint8_t M590Drv::getIP(IPAddress& ip) {
+uint8_t M590Drv::getIP(IPAddress &ip) {
   if (!checkSerial()) return false;
 
   // Activate the PPP connection
@@ -253,217 +287,186 @@ uint8_t M590Drv::getIP(IPAddress& ip) {
 }
 
 
-uint8_t M590Drv::resolve_url(const char * url, IPAddress& ip){
-    if (!checkSerial())
-        return false;
-    
-  if (_ppp_link){
-        char temp[20];
-    if (send_cmd_get(F("AT+DNS=\"%s\""), F("+DNS:"), F("\r\n"), temp, sizeof(temp), 4000, url)){
-            if (strstr(temp, "Error") == NULL){
-                ip.fromString(temp);
-                return true;
-            }
-            else{
-                LOGERROR(F("URL could not be resolved!"));
-            }
-        }
-        else {
-            LOGERROR(F("Unexpected DNS response"));
-        }
+uint8_t M590Drv::urlResolve(const char *url, IPAddress &ip) {
+  if (!checkSerial()) return false;
+  
+  if (_ppp_link) {
+    char temp[20];
+    if (send_cmd_get(F("AT+DNS=\"%s\""), F("+DNS:"), F("\r\n"), temp, sizeof(temp), 4000, url)) {
+      if (strstr(temp, "Error") == NULL) {
+        ip.fromString(temp);
+        return true;
+      }
+      else {
+        LOGERROR(F("URL could not be resolved"));
+      }
+    }
+    else {
+      LOGERROR(F("Unexpected DNS response"));
+    }
   }
   else {
-    LOGERROR(F("No PPP link!"));
-    }
-    return false;
-}
-
-bool M590Drv::check_link_status(uint8_t link){
-    if (link >= MAX_LINK)
-        return false;
-    
-    if (_ppp_link){
-        gsm->print("AT+IPSTATUS="); gsm->println(link);
-        if (gsm->find((char *)MODEM_TAGS[TAG_LINK_CONNECTED]))
-            return true;
-    }
-    return false;
-}
-
-uint8_t M590Drv::tcp_connect(IPAddress& host, uint16_t port, uint8_t link){    
-    if (link >= MAX_LINK){
-        LOGERROR(F("Link not supported!"));
-        return false;
-    }
-    
-    if (check_link_status(link)){
-        tcp_close(link);
-    }
-    
-  if (_ppp_link){
-        char hostbuf[20];
-        sprintf(hostbuf, "%d.%d.%d.%d", host[0], host[1], host[2], host[3]);
-        char temp[15];
-        
-    if (send_cmd_get(F("AT+TCPSETUP=%d,%s,%d"), F("UP:"), F("\r\n"), temp, sizeof(temp), 4000, link, hostbuf, port)){
-            if (strstr(temp, "0,OK")){
-                LOGINFO1(F("Connected to "), host);
-                return true;
-            }
-        }
+    LOGERROR(F("No PPP link"));
   }
-  else{
-    LOGERROR(F("No PPP link!"));
-  }
-    return false;
+  return false;
 }
 
-uint8_t M590Drv::tcp_write(const uint8_t * data, uint16_t len, uint8_t link){
-    bool ret = check_link_status(link);
-    if (!ret){
-        LOGERROR(F("Link is not connected"));
-        return false;
+bool M590Drv::linkStatus(uint8_t link) {
+  if (link >= MAX_LINK) return false;
+  if (_ppp_link) {
+    if (send_cmd(F("AT+IPSTATUS=%d"), 500, link) == TAG_LINK_CONNECTED) {
+      LOGDEBUG1(F("Link connected:"), link);
+      return true;
     }
-    
-  LOGDEBUG2(F("> sendData:"), link, len);
+    LOGDEBUG1(F("Link not connected:"), link);
+    return false;
+  }
+}
+
+uint8_t M590Drv::tcpConnect(IPAddress &host, uint16_t port, uint8_t link) {
+  if (link >= MAX_LINK) {
+    LOGERROR1(F("Link not supported"), link);
+    return false;
+  }
+  // Close the link, if open
+  if (linkStatus(link)) tcpClose(link);
+  // Connect
+  if (_ppp_link) {
+    char hostbuf[20];
+    sprintf(hostbuf, "%d.%d.%d.%d", host[0], host[1], host[2], host[3]);
+    char temp[40];
+    if (send_cmd_get(F("AT+TCPSETUP=%d,%s,%d"), F("UP:"), F("\r\n"), temp, sizeof(temp), 4000, link, hostbuf, port)) {
+      if (strstr(temp, ",OK")) {
+        LOGINFO1(F("Connected to "), host);
+        return true;
+      }
+    }
+  }
+  else {
+    LOGERROR(F("No PPP link"));
+  }
+  return false;
+}
+
+uint8_t M590Drv::tcpWrite(const uint8_t *data, uint16_t len, uint8_t link) {
+  if (!linkStatus(link)) {
+    LOGERROR(F("Link is not connected"));
+    return false;
+  }
 
   char params[10];
-  sprintf(params, "%d,%u", link, len);
-    
-  if (send_cmd_find(F("AT+TCPSEND=%s"), ">", 1000, params)){
+  sprintf_P(params, PSTR("%d,%u"), link, len);
+
+  if (send_cmd_find(F("AT+TCPSEND=%s"), ">", 1000, params)) {
         gsm->write(data, len);
         gsm->write('\r');
 
         char temp[10];
-        if (locate_tag("D:", "\r\n", temp, sizeof(temp), 3000, 0)){
-            if (strstr(temp, params)){
-                LOGINFO1(F("Data sent of size"), len);
-                return true;
-            }
-            else {
-                LOGERROR(F("Error sending data. No PPP link."));
-                return false;
-            }
+        if (locate_tag("SEND:", "\r\n", temp, sizeof(temp), 3000, 0)) {
+          if (strstr(temp, params)) {
+            LOGINFO1(F("Data sent, bytes "), len);
+            return true;
+          }
+          else {
+            LOGERROR(F("Error sending data. No PPP link."));
+            return false;
+          }
         }
         else {
-            LOGERROR(F("Data send error. Unexpected response"));
-            return false;
+          LOGERROR(F("Error sending data. Unexpected response"));
+          return false;
         }
-    }
-    else {
-        LOGERROR(F("Data send error. Did not find '>'"));
-        return false;
-    } 
+  }
+  else {
+    LOGERROR(F("Error sending data. Expected '>'"));
+    return false;
+  }
 }
 
-// Overrided sendData method for __FlashStringHelper strings
-bool M590Drv::tcp_write(const __FlashStringHelper *data, uint16_t len, uint8_t link, bool appendCrLf)
-{
-    bool ret = check_link_status(link);
-    if (!ret){
-        LOGERROR(F("Link is not connected"));
-        return false;
-    }
-    
-  LOGDEBUG2(F("> sendData:"), link, len);
-
-  char cmdBuf[20];
-  uint16_t len2 = len + 2*appendCrLf;
-  sprintf_P(cmdBuf, PSTR("AT+TCPSEND=%d,%u"), link, len2);
-  gsm->println(cmdBuf);
+bool M590Drv::tcpWrite(const __FlashStringHelper *data, uint16_t len, uint8_t link, bool appendCrLf) {
+  if (!linkStatus(link)) {
+    LOGERROR(F("Link is not connected"));
+    return false;
+  }
 
   char params[10];
-  sprintf_P(params, PSTR("%d,%u"), link, len);
-    
-  if (send_cmd_find(F("AT+TCPSEND=%s"), ">", 1000, params)){
-        PGM_P p = reinterpret_cast<PGM_P>(data);
-        for (int i=0; i<len; i++)
-        {
-            unsigned char c = pgm_read_byte(p++);
-            gsm->write(c);
-        }
-        if (appendCrLf)
-        {
-            gsm->write('\r');
-            gsm->write('\n');
-        }
-        
-        char temp[10];
-        if (locate_tag("SEND:", "\r\n", temp, sizeof(temp), 3000, 0)){
-            if (strstr(temp, params)){
-                LOGINFO1(F("Data sent of size"), len);
-                return true;
-            }
-            else {
-                LOGERROR(F("Error sending data. No PPP link."));
-                return false;
-            }
-        }
-        else {
-            LOGERROR(F("Data send error. Unexpected response"));
-            return false;
-        }
+  uint16_t len2 = len + appendCrLf + appendCrLf;
+  sprintf_P(params, PSTR("%d,%u"), link, len2);
+
+  if (send_cmd_find(F("AT+TCPSEND=%s"), ">", 1000, params)) {
+    PGM_P p = reinterpret_cast<PGM_P>(data);
+    for (int i=0; i<len; i++) {
+      unsigned char c = pgm_read_byte(p++);
+      gsm->write(c);
+    }
+    if (appendCrLf) {
+      gsm->write('\r');
+      gsm->write('\n');
+    }
+
+    char temp[10];
+    if (locate_tag("SEND:", "\r\n", temp, sizeof(temp), 3000, 0)) {
+      if (strstr(temp, params)){
+        LOGINFO1(F("Data sent, bytes "), len2);
+        return true;
+      }
+      else {
+        LOGERROR(F("Error sending data. No PPP link."));
+        return false;
+      }
     }
     else {
-        LOGERROR(F("Data send error. Did not find '>'"));
-        return false;
+      LOGERROR(F("Error sending data. Unexpected response"));
+      return false;
     }
+  }
+  else {
+    LOGERROR(F("Error sending data. Expected '>'"));
+    return false;
+  }
 }
 
-uint16_t M590Drv::avail_data(uint8_t link)
-{
-    //LOGDEBUG(_buf_pos);
+uint16_t M590Drv::avlData(uint8_t link) {
+  //LOGDEBUG(_buf_pos);
 
-  // if there is data in the buffer
-  if (_buf_pos > 0 && _curr_link == link)
-    return _buf_pos;
+  // If there is data in the buffer
+  if (_buf_pos > 0 && _curr_link == link) return _buf_pos;
 
-    int bytes = gsm->available();
-
-  if (bytes)
-  {
+  int bytes = gsm->available();
+  if (bytes) {
     //LOGDEBUG1(F("Bytes in the serial buffer: "), bytes);
-    if (gsm->find((char *)"CV:"))
-    {
+    if (gsm->find((char *)"CV:")) {
       // format is : +TCPRECV:<link>,<length>,<data>
-
-      _curr_link = gsm->parseInt();    // <link>
+      _curr_link = gsm->parseInt(); // <link>
       gsm->read();                  // ,
-      _buf_pos = gsm->parseInt();    // <len>
+      _buf_pos = gsm->parseInt();   // <len>
       gsm->read();                  // ,
 
       LOGDEBUG();
       LOGDEBUG2(F("Data packet"), _curr_link, _buf_pos);
-            
-      if(_curr_link == link)
-        return _buf_pos;
+
+      if(_curr_link == link) return _buf_pos;
     }
-  }/*
+  }
+  /*
     else {
         LOGDEBUG("Nothing available!");
         return 0;
     }*/
-    return 0;
+  return 0;
 }
 
-bool M590Drv::read_data(uint8_t *data, bool peek, uint8_t link, bool* conn_close)
-{
-  if (link != _curr_link)
-    return false;
+bool M590Drv::readData(uint8_t *data, bool peek, uint8_t link, bool *conn_close) {
+  if (link != _curr_link) return false;
 
   // see Serial.timedRead
-
   unsigned long _startMillis = millis();
-  do
-  {
-    if (gsm->available())
-    {
-      if (peek)
-      {
+  do {
+    if (gsm->available()) {
+      if (peek) {
         *data = gsm->peek();
       }
-      else
-      {
+      else {
         *data = gsm->read();
         _buf_pos--;
       }
@@ -503,13 +506,13 @@ bool M590Drv::read_data(uint8_t *data, bool peek, uint8_t link, bool* conn_close
     }
   } while(millis() - _startMillis < 1000);
 
-    // timed out, reset the buffer
+  // timed out, reset the buffer
   LOGERROR1(F("TIMEOUT:"), _buf_pos);
 
-    _buf_pos = 0;
+  _buf_pos = 0;
   _curr_link = -1;
   *data = 0;
-  
+
   return false;
 }
 
@@ -518,21 +521,16 @@ bool M590Drv::read_data(uint8_t *data, bool peek, uint8_t link, bool* conn_close
  * It reads up to bufSize bytes.
  * @return  received data size for success else -1.
  */
-int16_t M590Drv::read_data_buf(uint8_t *buf, uint16_t buf_size, uint8_t link)
-{
-  if (link != _curr_link)
-    return false;
+int16_t M590Drv::readDataBuf(uint8_t *buf, uint16_t buf_size, uint8_t link) {
+  if (link != _curr_link) return false;
 
-  if(_buf_pos < buf_size)
-    buf_size = _buf_pos;
-  
-  for(int i=0; i<buf_size; i++)
-  {
-    int c = timed_read();
+  if(_buf_pos < buf_size) buf_size = _buf_pos;
+
+  for(int i=0; i<buf_size; i++) {
+    int c = timedRead();
     //LOGDEBUG(c);
-    if(c == -1)
-      return -1;
-    
+    if (c == -1) return -1;
+
     buf[i] = (uint8_t)c;
     _buf_pos--;
   }
@@ -540,41 +538,35 @@ int16_t M590Drv::read_data_buf(uint8_t *buf, uint16_t buf_size, uint8_t link)
   return buf_size;
 }
 
-uint8_t M590Drv::tcp_close(uint8_t link){
-    bool idx = check_link_status(link);
-    
-    if (!idx) return true;
-    
-  idx = send_cmd(F("AT+TCPCLOSE=%d"), 500, link);
-    
-  if (idx == TAG_TCP_OK){
+uint8_t M590Drv::tcpClose(uint8_t link) {
+  if (!linkStatus(link)) return true;
+
+  if (send_cmd(F("AT+TCPCLOSE=%d"), 500, link) == TAG_TCP_OK) {
     LOGINFO(F("TCP link closed"));
-        return true;
-    }
-  else{
+    return true;
+  }
+  else {
     LOGERROR1(F("Failed to close TCP link"), link);
-        return false;
-    }
+    return false;
+  }
 }
 
-uint8_t M590Drv::power_down(){
-    if (!checkSerial())
-        return false;
-    
-  int idx = send_cmd(F("AT+CPWROFF"), 500);
-  if (idx == TAG_OK){
+uint8_t M590Drv::powerDown() {
+  if (!checkSerial()) return false;
+
+  if (send_cmd(F("AT+CPWROFF"), 500) == TAG_OK) {
     LOGINFO(F("Power off in progress. Completes in 5 secs."));
     return true;
   }
-  else{
+  else {
     LOGERROR(F("Error powering down!"));
     return false;
   }
 }
 
-void M590Drv::interact(){
+void M590Drv::interact() {
   Serial.println(F("Entering transparent mode..."));
-  while (1){
+  while (1) {
     while (Serial.available() > 0)
       gsm->write(Serial.read());
     while (gsm->available() > 0)
@@ -621,7 +613,7 @@ bool M590Drv::locate_tag(const char *startTag, const char *endTag, char *outStr,
   bool ret = false;
   outStr[0] = 0;
 
-  empty_buf(); // read result until the startTag is found
+  emptyBuffer(); // read result until the startTag is found
   idx = read_until(init_timeout, startTag, false);
 
   if (idx == NUM_TAGS) {
@@ -728,7 +720,7 @@ int M590Drv::send_cmd(const __FlashStringHelper* cmd, int timeout, ...)
   vsnprintf_P(cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
   va_end(args);
 
-  empty_buf();
+  emptyBuffer();
 
   LOGDEBUG(F("----------------------------------------------"));
   LOGDEBUG1(F(">>"), cmdBuf);
@@ -752,7 +744,7 @@ bool M590Drv::send_cmd_find(const __FlashStringHelper* cmd, const char * tag, in
   vsnprintf_P (cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
   va_end (args);
 
-  empty_buf();
+  emptyBuffer();
 
   LOGDEBUG(F("----------------------------------------------"));
   LOGDEBUG1(F(">>"), cmdBuf);
@@ -767,32 +759,26 @@ bool M590Drv::send_cmd_find(const __FlashStringHelper* cmd, const char * tag, in
   return idx==NUM_TAGS;
 }
 
-void M590Drv::empty_buf(bool warn)
-{
-    char c;
-  int i=0;
-  while(gsm->available() > 0)
-    {
+void M590Drv::emptyBuffer(bool warn) {
+  char c;
+  int i = 0;
+  while(gsm->available() > 0) {
     c = gsm->read();
-    if (warn==true)
-      LOGDEBUG0(c);
+    if (warn == true) LOGDEBUG0(c);
     i++;
   }
-  if (i>0 and warn==true)
-    {
+  if (i > 0 and warn == true) {
     LOGDEBUG(F(""));
     LOGDEBUG1(F("Dirty characters in the serial buffer! >"), i);
   }
 }
 
 // copied from Serial::timedRead
-int M590Drv::timed_read()
-{
+int M590Drv::timedRead() {
   int _timeout = 1000;
   int c;
   unsigned long _startMillis = millis();
-  do
-  {
+  do {
     c = gsm->read();
     if (c >= 0) return c;
   } while(millis() - _startMillis < _timeout);

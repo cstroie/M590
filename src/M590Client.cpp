@@ -20,14 +20,12 @@ along with The Arduino M590 library.  If not, see
 #include "M590Client.h"
 #include "utility/debug.h"
 
-int16_t M590Client::_state[MAX_LINK] = { NA_STATE, NA_STATE };
+int16_t M590Client::_state[MAX_LINK] = {NA_STATE, NA_STATE};
 
-M590Client::M590Client(M590Drv * dev) : _link(255), _modem(dev)
-{
+M590Client::M590Client(M590Drv * dev) : _link(255), _modem(dev) {
 }
 
-M590Client::M590Client(M590Drv * dev, uint8_t link) : _link(link), _modem(dev)
-{
+M590Client::M590Client(M590Drv * dev, uint8_t link) : _link(link), _modem(dev) {
 }
 
 
@@ -37,16 +35,14 @@ M590Client::M590Client(M590Drv * dev, uint8_t link) : _link(link), _modem(dev)
 
 // the standard print method will call write for each character in the buffer
 // this is very slow on ESP
-size_t M590Client::print(const __FlashStringHelper *ifsh)
-{
-	printFSH(ifsh, false);
+size_t M590Client::print(const __FlashStringHelper *ifsh) {
+  printFSH(ifsh, false);
 }
 
 // if we do override this, the standard println will call the print
 // method twice
-size_t M590Client::println(const __FlashStringHelper *ifsh)
-{
-	printFSH(ifsh, true);
+size_t M590Client::println(const __FlashStringHelper *ifsh) {
+  printFSH(ifsh, true);
 }
 
 
@@ -54,152 +50,113 @@ size_t M590Client::println(const __FlashStringHelper *ifsh)
 // Implementation of Client virtual methods
 ////////////////////////////////////////////////////////////////////////////////
 
-int M590Client::connect(const char * host, uint16_t port)
-{
-	IPAddress ip;
-    if (_modem->resolve_url(host, ip)){
-        return connect(ip, port);
-    }
-
-	return 0;
+int M590Client::connect(const char *host, uint16_t port) {
+  IPAddress ip;
+  if (_modem->urlResolve(host, ip)) {
+    return connect(ip, port);
+  }
+  return 0;
 }
 
-int M590Client::connect(IPAddress ip, uint16_t port)
-{
-	LOGINFO1(F("Connecting to"), ip);
+int M590Client::connect(IPAddress ip, uint16_t port) {
+  LOGINFO1(F("Connecting to"), ip);
 
-	_link = get_first_link();
+  _link = get_first_link();
 
-    if (_link != NO_LINK_AVAIL)
-    {
-    	if (!_modem->tcp_connect(ip, port, _link))
-			return 0;
-
-    	_state[_link] = _link;
-    }
-	else
-	{
-    	Serial.println(F("No socket available"));
-    	return 0;
-    }
-    return 1;
+  if (_link != NO_LINK_AVAIL) {
+    if (!_modem->tcpConnect(ip, port, _link)) return 0;
+    _state[_link] = _link;
+  }
+  else {
+    Serial.println(F("No socket available"));
+    return 0;
+  }
+  return 1;
 }
 
-
-
-size_t M590Client::write(uint8_t b)
-{
-	  return write(&b, 1);
+size_t M590Client::write(uint8_t b) {
+  return write(&b, 1);
 }
 
-size_t M590Client::write(const uint8_t *buf, size_t size)
-{
-	if (_link >= MAX_LINK || size==0)
-	{
-		setWriteError();
-		return 0;
-	}
+size_t M590Client::write(const uint8_t *buf, size_t size) {
+  if (_link >= MAX_LINK || size==0) {
+    setWriteError();
+    return 0;
+  }
 
-	bool r = _modem->tcp_write(buf, size, _link);
-	if (!r)
-	{
-        setWriteError();
-		LOGERROR1(F("Failed to write to socket"), _link);
-		delay(1000);
-		stop();
-		return 0;
-	}
+  if (!_modem->tcpWrite(buf, size, _link)) {
+    setWriteError();
+    LOGERROR1(F("Failed to write to socket"), _link);
+    delay(1000);
+    stop();
+    return 0;
+  }
 
-	return size;
+  return size;
 }
 
-
-
-int M590Client::available()
-{
-	if (_link != 255)
-	{
-		int bytes = _modem->avail_data(_link);
-		return bytes;
-	}
-
+int M590Client::available() {
+  if (_link != 255) {
+    int bytes = _modem->avlData(_link);
+    return bytes;
+  }
 }
 
-int M590Client::read()
-{
-	uint8_t b;
-	if (!available())
-		return -1;
+int M590Client::read() {
+  uint8_t b;
+  if (!available()) return -1;
 
-	bool conn_close = false;
-	_modem->read_data(&b, false, _link, &conn_close);
+  bool conn_close = false;
+  _modem->readData(&b, false, _link, &conn_close);
 
-	if (conn_close)
-	{
-		_state[_link] = NA_STATE;
-		_link = 255;
-	}
-
-	return b;
-}
-
-int M590Client::read(uint8_t* buf, size_t size)
-{
-	if (!available())
-		return -1;
-	return _modem->read_data(buf, size, _link);
-}
-
-int M590Client::peek()
-{
-	uint8_t b;
-	if (!available())
-		return -1;
-
-	bool conn_close = false;
-	_modem->read_data(&b, true, _link, &conn_close);
-
-	if (conn_close)
-	{
-		_state[_link] = NA_STATE;
-		_link = 255;
-	}
-
-	return b;
-}
-
-
-void M590Client::flush()
-{
-	while (available())
-		read();
-}
-
-
-
-void M590Client::stop()
-{
-	if (_link == 255)
-		return;
-
-	LOGINFO1(F("Disconnecting "), _link);
-
-	_modem->tcp_close(_link);
-    
+  if (conn_close) {
     _state[_link] = NA_STATE;
     _link = 255;
-    
+  }
+
+  return b;
 }
 
-
-uint8_t M590Client::connected()
-{
-    return (status() == ESTABLISHED);
+int M590Client::read(uint8_t* buf, size_t size) {
+  if (!available()) return -1;
+  return _modem->readDataBuf(buf, size, _link);
 }
 
+int M590Client::peek() {
+  uint8_t b;
+  if (!available()) return -1;
 
-M590Client::operator bool()
-{
+  bool conn_close = false;
+  _modem->readData(&b, true, _link, &conn_close);
+
+  if (conn_close) {
+    _state[_link] = NA_STATE;
+    _link = 255;
+  }
+
+  return b;
+}
+
+void M590Client::flush() {
+  while (available())
+    read();
+}
+
+void M590Client::stop() {
+  if (_link == 255) return;
+
+  LOGINFO1(F("Disconnecting link"), _link);
+
+  _modem->tcpClose(_link);
+  _state[_link] = NA_STATE;
+  _link = 255;
+}
+
+uint8_t M590Client::connected() {
+  return (status() == ESTABLISHED);
+}
+
+M590Client::operator bool() {
   return _link != 255;
 }
 
@@ -208,65 +165,44 @@ M590Client::operator bool()
 // Additional WiFi standard methods
 ////////////////////////////////////////////////////////////////////////////////
 
+uint8_t M590Client::status() {
+  if (_link == 255) return CLOSED;
+  if (_modem->avlData(_link)) return ESTABLISHED;
+  if (_modem->linkStatus(_link)) return ESTABLISHED;
 
-uint8_t M590Client::status()
-{
-	if (_link == 255)
-	{
-		return CLOSED;
-	}
-    
-	if (_modem->avail_data(_link))
-	{
-		return ESTABLISHED;
-	}
-
-    if (_modem->check_link_status(_link))
-	{
-		return ESTABLISHED;
-	}
-	_state[_link] = NA_STATE;
-	_link = 255;
-
-	return CLOSED;
+  _state[_link] = NA_STATE;
+  _link = 255;
+  return CLOSED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private Methods
 ////////////////////////////////////////////////////////////////////////////////
 
-uint8_t M590Client::get_first_link()
-{
-    for (int i = 0; i < MAX_LINK; i++)
-	{
-      if (_state[i] == NA_STATE)
-      {
-          return i;
-      }
-    }
-    return LINK_NOT_AVAIL;
+uint8_t M590Client::get_first_link() {
+  for (int i = 0; i < MAX_LINK; i++) {
+    if (_state[i] == NA_STATE) return i;
+  }
+  return LINK_NOT_AVAIL;
 }
 
+size_t M590Client::printFSH(const __FlashStringHelper *ifsh, bool appendCrLf) {
+  size_t size = strlen_P((char*)ifsh);
 
-size_t M590Client::printFSH(const __FlashStringHelper *ifsh, bool appendCrLf)
-{
-	size_t size = strlen_P((char*)ifsh);
-	
-	if (_link >= MAX_LINK || size==0)
-	{
-        setWriteError();
-		return 0;
-	}
+  if (_link >= MAX_LINK || size==0) {
+    setWriteError();
+    return 0;
+  }
 
-	bool r = _modem->tcp_write(ifsh, size, _link, appendCrLf);
-	if (!r)
-	{
-        setWriteError();
-		LOGERROR1(F("Failed to write to socket"), _link);
-		delay(1000);
-		stop();
-		return 0;
-	}
+  if (!_modem->tcpWrite(ifsh, size, _link, appendCrLf)) {
+    setWriteError();
+    LOGERROR1(F("Failed to write to socket"), _link);
+    delay(1000);
+    stop();
+    return 0;
+  }
 
-	return size;
+  return size;
 }
+
+/* vim: set ft=cpp ai ts=2 sts=2 et sw=2 sta nowrap nu : */
