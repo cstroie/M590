@@ -117,7 +117,7 @@ int M590Client::read() {
   return b;
 }
 
-int M590Client::read(uint8_t* buf, size_t size) {
+int M590Client::read(uint8_t *buf, size_t size) {
   if (!available()) return -1;
   return _modem->readDataBuf(buf, size, _link);
 }

@@ -75,6 +75,11 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
   }
   send_cmd(F("ATE0"));
 
+  // Close all stalled connections
+  for (int l=0;l<MAX_LINK;l++) {
+    tcpClose(l);
+  }
+
   if (!SIM_PRESENCE) {
     LOGINFO(F("SIM absent"));
     LOGINFO(F("Initialization complete"));
@@ -135,6 +140,7 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
   _buf_pos = 0;
   _curr_link = -1;
   LOGINFO(F("Initialization complete"));
+  return true;
 }
 
 // RSSI
@@ -434,7 +440,7 @@ uint16_t M590Drv::avlData(uint8_t link) {
 
   int bytes = gsm->available();
   if (bytes) {
-    //LOGDEBUG1(F("Bytes in the serial buffer: "), bytes);
+    LOGDEBUG1(F("Bytes in the serial buffer: "), bytes);
     if (gsm->find((char *)"CV:")) {
       // format is : +TCPRECV:<link>,<length>,<data>
       _curr_link = gsm->parseInt(); // <link>
@@ -471,37 +477,6 @@ bool M590Drv::readData(uint8_t *data, bool peek, uint8_t link, bool *conn_close)
         _buf_pos--;
       }
       //Serial.print((char)*data);
-            /*
-
-      if (_buf_pos == 0)
-      {
-        // after the data packet a ",CLOSED" string may be received
-        // this means that the socket is now closed
-
-        delay(5);
-
-        if (gsm->available())
-        {
-          //LOGDEBUG(".2");
-          //LOGDEBUG(espSerial->peek());
-
-          // 48 = '0'
-          if (gsm->peek()==48+connId)
-          {
-            int idx = readUntil(500, ",CLOSED\r\n", false);
-            if(idx!=NUMESPTAGS)
-            {
-              LOGERROR(F("Tag CLOSED not found"));
-            }
-
-            LOGDEBUG();
-            LOGDEBUG(F("Connection closed"));
-
-            *connClose=true;
-          }
-        }
-      }*/
-
       return true;
     }
   } while(millis() - _startMillis < 1000);
@@ -628,7 +603,8 @@ bool M590Drv::locate_tag(const char *startTag, const char *endTag, char *outStr,
       // copy result to output buffer avoiding overflow
       ringBuf.getStrN(outStr, strlen(endTag), outStrLen-1);
       // read the remaining part of the response
-      read_until(final_timeout, NULL, false, true);
+      // FIXME NOOOO
+      read_until(final_timeout, "\r\n", false, true);
       ret = true;
     }
     else {
@@ -781,7 +757,7 @@ int M590Drv::timedRead() {
   do {
     c = gsm->read();
     if (c >= 0) return c;
-  } while(millis() - _startMillis < _timeout);
+  } while (millis() - _startMillis < _timeout);
 
   return -1; // -1 indicates timeout
 }
