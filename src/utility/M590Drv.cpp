@@ -476,7 +476,7 @@ bool M590Drv::readData(uint8_t *data, bool peek, uint8_t link, bool *conn_close)
         *data = gsm->read();
         _buf_pos--;
       }
-      //Serial.print((char)*data);
+      //Serial.print((char)*data, 16);
       return true;
     }
   } while(millis() - _startMillis < 1000);
@@ -504,6 +504,7 @@ int16_t M590Drv::readDataBuf(uint8_t *buf, uint16_t buf_size, uint8_t link) {
   for(int i=0; i<buf_size; i++) {
     int c = timedRead();
     //LOGDEBUG(c);
+    //Serial.println(c, 16);
     if (c == -1) return -1;
 
     buf[i] = (uint8_t)c;
