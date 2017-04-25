@@ -75,6 +75,12 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
   }
   send_cmd(F("ATE0"));
 
+  // LED Signal
+  send_cmd(F("AT+SIGNAL=3"));
+
+  // Low power
+  send_cmd(F("AT+ENPWRSAVE=1"));
+
   // Close all stalled connections
   for (int l=0;l<MAX_LINK;l++) {
     tcpClose(l);
@@ -94,7 +100,7 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
 
   int retry;
   bool regOk = false;
-  for (retry = 0; retry < 20; retry++) {
+  for (retry = 0; retry < 60; retry++) {
     int regStatus = send_cmd(F("AT+CREG?"));
     if      (regStatus == TAG_REG_INACTIVE) {
       LOGINFO(F("Inactive"));
@@ -148,7 +154,7 @@ int16_t M590Drv::getRSSI() {
   if (!checkSerial()) return false;
   char buf[6];
   send_cmd_get(F("AT+CSQ"), F("CSQ:"), F(","), buf, sizeof(buf));
-  int rssi = -113 + atoi(buf);
+  int rssi = -113 + atoi(buf) + atoi(buf);
   return rssi;
 }
 
