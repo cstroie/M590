@@ -41,6 +41,7 @@ class M590Drv {
     void setCCLK(const char *str);
     void getCOPS(char *str, int len);
     int getRSSI();
+    void pwrSave();
     void setFUN(int fun, int rst);
     void funSleep();
     void funWork();

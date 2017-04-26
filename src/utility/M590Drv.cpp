@@ -76,15 +76,7 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
   send_cmd(F("ATE0"));
 
   // LED Signal
-  send_cmd(F("AT+SIGNAL=3"));
-
-  // Low power
-  send_cmd(F("AT+ENPWRSAVE=1"));
-
-  // Close all stalled connections
-  for (int l=0;l<MAX_LINK;l++) {
-    tcpClose(l);
-  }
+  //send_cmd(F("AT+SIGNAL=3"));
 
   if (!SIM_PRESENCE) {
     LOGINFO(F("SIM absent"));
@@ -138,6 +130,10 @@ uint8_t M590Drv::begin(Stream * ss, char sim_state) {
   getCOPS(buf, sizeof(buf));
   LOGINFO1(F("Oper: "), buf);
 
+
+  // Close all stalled connections
+  for (uint8_t link = 0; link < MAX_LINK; link++) tcpClose(link);
+
   // SMS
   send_cmd(F("AT+CMGF=1"));
   send_cmd(F("AT+CSCS=\"GSM\""));
@@ -183,6 +179,14 @@ void M590Drv::setCCLK(const char *str) {
     return false;
   }
 }
+
+// Enable power saving
+void M590Drv::pwrSave() {
+  if (send_cmd(F("AT+ENPWRSAVE=1")) != TAG_OK) {
+    LOGDEBUG(F("Could not enable power saving mode"));
+  }
+}
+
 
 // network operator
 void M590Drv::getCOPS(char *str, int len) {
@@ -330,9 +334,9 @@ bool M590Drv::linkStatus(uint8_t link) {
       LOGDEBUG1(F("Link connected:"), link);
       return true;
     }
-    LOGDEBUG1(F("Link not connected:"), link);
-    return false;
   }
+  LOGDEBUG1(F("Link not connected:"), link);
+  return false;
 }
 
 uint8_t M590Drv::tcpConnect(IPAddress &host, uint16_t port, uint8_t link) {
@@ -341,7 +345,7 @@ uint8_t M590Drv::tcpConnect(IPAddress &host, uint16_t port, uint8_t link) {
     return false;
   }
   // Close the link, if open
-  if (linkStatus(link)) tcpClose(link);
+  tcpClose(link);
   // Connect
   if (_ppp_link) {
     char hostbuf[20];
