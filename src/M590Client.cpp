@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------
 This file is part of the Arduino M590 library.
 
-The Arduino M690 library is free software: you can redistribute it
+The Arduino M590 library is free software: you can redistribute it
 and/or modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
@@ -22,10 +22,10 @@ along with The Arduino M590 library.  If not, see
 
 int16_t M590Client::_state[MAX_LINK] = {NA_STATE, NA_STATE};
 
-M590Client::M590Client(M590Drv * dev) : _link(255), _modem(dev) {
+M590Client::M590Client(M590Drv *dev) : _link(255), _modem(dev) {
 }
 
-M590Client::M590Client(M590Drv * dev, uint8_t link) : _link(link), _modem(dev) {
+M590Client::M590Client(M590Drv *dev, uint8_t link) : _link(link), _modem(dev) {
 }
 
 
@@ -56,6 +56,12 @@ int M590Client::connect(const char *host, uint16_t port) {
     return connect(ip, port);
   }
   return 0;
+}
+
+int M590Client::connect_P(const char *host, uint16_t port) {
+  char buf[strlen_P((char*)host) + 1];
+  strncpy_P(buf, (char*)host, sizeof(buf));
+  return connect(buf, port);
 }
 
 int M590Client::connect(IPAddress ip, uint16_t port) {

@@ -47,7 +47,8 @@ class M590Drv {
     void funWork();
     void restart();
     int getFUN();
-    uint8_t pppConnect(const char *apn, const char *uname=NULL, const char *pwd=NULL);
+    uint8_t pppConnect(const char *apn, const char *uname = NULL, const char *pwd = NULL);
+    uint8_t pppConnect_P(const char *apn, const char *uname = NULL, const char *pwd = NULL);
     uint8_t getIP(IPAddress &ip);
     uint8_t urlResolve(const char *url, IPAddress &ip);
     bool linkStatus(uint8_t link = 0);

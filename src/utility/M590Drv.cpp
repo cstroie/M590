@@ -276,6 +276,16 @@ uint8_t M590Drv::pppConnect(const char *apn, const char *uname, const char *pwd)
   }
 }
 
+uint8_t M590Drv::pppConnect_P(const char *apn, const char *uname, const char *pwd) {
+  char apnBuf[strlen_P((char*)apn) + 1];
+  strncpy_P(apnBuf, (char*)apn, sizeof(apnBuf));
+  char unameBuf[strlen_P((char*)uname) + 1];
+  strncpy_P(unameBuf, (char*)uname, sizeof(unameBuf));
+  char pwdBuf[strlen_P((char*)pwd) + 1];
+  strncpy_P(pwdBuf, (char*)pwd, sizeof(pwdBuf));
+  return pppConnect(apnBuf, unameBuf, pwdBuf);
+}
+
 uint8_t M590Drv::getIP(IPAddress &ip) {
   if (!checkSerial()) return false;
 
